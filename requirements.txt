@@ -1,0 +1,25 @@
+# Dependências do Projeto Unipulso
+# Gerador de Pulseiras Hospitalares
+
+# Interface Gráfica
+ttkbootstrap>=1.10.0
+Pillow>=10.0.0
+
+# QR Code
+qrcode>=7.4.0
+
+# PDF
+reportlab>=4.0.0
+
+# Impressão Zebra (Windows)
+pywin32>=306; sys_platform == 'win32'
+
+# Impressão Zebra (Linux)
+pycups>=2.0.0; sys_platform == 'linux'
+
+# Build e Distribuição
+pyinstaller>=6.0.0
+
+# Outras dependências
+charset-normalizer>=3.0.0
+colorama>=0.4.6

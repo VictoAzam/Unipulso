@@ -1,0 +1,42 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.spec~
+
+# PyInstaller
+*.manifest
+*.spec~
+
+# Instalador
+installer_output/
+*.exe
+
+# IDEs and editors
+.vscode/
+.idea/
+
+# Environments
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output files
+output/
+*.png
+*.pdf
+
+# Preferences
+preferences.json
