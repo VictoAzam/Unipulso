@@ -36,64 +36,67 @@ def create_pulseira_image(
     
     print(f"[DEBUG] Fonts received: {fonts}")
     
-    # Cria a imagem base (branco)
+    # Cria a imagem base da pulseira (fundo branco, modo RGB para cores)
     base = Image.new('RGB', (P_WIDTH, P_HEIGHT), (255, 255, 255))
-    draw = ImageDraw.Draw(base)
+    draw = ImageDraw.Draw(base)  # Objeto para desenhar formas e textos na imagem
 
-    # Atualiza a largura da área imprimível para 11 cm
-    PRINTABLE_WIDTH_CM = 11  # Largura da área imprimível em centímetros
-    PRINTABLE_W_PX = cm_to_px(PRINTABLE_WIDTH_CM)  # Converte para pixels
+    # Define a largura da área imprimível (área útil onde os dados são renderizados)
+    PRINTABLE_WIDTH_CM = 11  # 11cm é o padrão para pulseiras Zebra ZD230
+    PRINTABLE_W_PX = cm_to_px(PRINTABLE_WIDTH_CM)  # Converte de cm para pixels (1299px)
 
-    # Atualiza a lógica da área imprimível
-    printable_left = NP_START_PX
-    printable_top = 0
-    printable_right = printable_left + PRINTABLE_W_PX
+    # Calcula os limites da área imprimível (região onde dados serão renderizados)
+    printable_left = NP_START_PX  # Margem esquerda (295px = 2.5cm)
+    printable_top = 0  # Começa no topo da pulseira
+    printable_right = printable_left + PRINTABLE_W_PX  # Fim da área útil (295 + 1299 = 1594px)
     
-    # Desenha a borda da área imprimível
+    # Desenha borda retangular ao redor da área imprimível (referência visual)
     try:
-        border_width = 3  # Largura da borda em pixels
+        border_width = 3  # Borda de 3 pixels de espessura
         draw.rectangle(
             [(printable_left, printable_top), (printable_right - 1, P_HEIGHT - 1)],
-            outline=(0, 0, 0), width=border_width
+            outline=(0, 0, 0), width=border_width  # Borda preta
         )
     except Exception as e:
         print(f"[ERROR] Falha ao desenhar a borda da área imprimível: {e}")
 
     # ============================================================
-    # ÁREA 1 (ESQUERDA): QR CODE
+    # ÁREA 1 (ESQUERDA): QR CODE com número da carteirinha
     # ============================================================
-    qr_side_px = int(P_HEIGHT - 2 * cm_to_px(0.1))
+    # Tamanho do QR: altura da pulseira menos margens superior/inferior (0.1cm cada)
+    qr_side_px = int(P_HEIGHT - 2 * cm_to_px(0.1))  # ~216 pixels (quadrado)
+    # Gera QR code com o número da carteirinha do paciente
     qr_img = generate_qr_image(patient_data.get('Número da carteirinha', ''), qr_side_px)
+    # Posiciona QR: margem de 0.1cm da borda esquerda da área imprimível
     qr_x = printable_left + cm_to_px(0.1)
-    qr_y = int((P_HEIGHT - qr_side_px) / 2)
-    base.paste(qr_img, (qr_x, qr_y))
+    qr_y = int((P_HEIGHT - qr_side_px) / 2)  # Centralizado verticalmente
+    base.paste(qr_img, (qr_x, qr_y))  # Cola o QR code na imagem base
 
     # ============================================================
-    # ÁREA 2 (CENTRO): Informações do Paciente
+    # ÁREA 2 (CENTRO): Informações do Paciente (nome, dados, etc.)
     # ============================================================
-    # Margem entre QR code e área de texto central
-    centro_left = qr_x + qr_side_px + cm_to_px(0.3)  # Margem após QR
-    centro_right = printable_right - cm_to_px(0.3)  # Margem antes da logo
+    # Calcula área central disponível entre QR code e logo
+    centro_left = qr_x + qr_side_px + cm_to_px(0.3)  # 0.3cm de margem após o QR
+    centro_right = printable_right - cm_to_px(0.3)  # 0.3cm de margem antes da logo/borda
     
     # ============================================================
-    # ÁREA 3 (DIREITA): LOGO
+    # ÁREA 3 (DIREITA): LOGO do hospital/instituição
     # ============================================================
-    if logo_image:
-        # Logo ocupa espaço fixo à direita
-        logo_width = int(cm_to_px(2.5))  # 2.5cm de largura
-        logo_height = int(P_HEIGHT - cm_to_px(0.2))  # Altura total menos margens
+    if logo_image:  # Se um logotipo foi fornecido  # Se um logotipo foi fornecido
+        # Define dimensões máximas para o logo (canto direito da pulseira)
+        logo_width = int(cm_to_px(2.5))  # Largura máxima: 2.5cm (~295px)
+        logo_height = int(P_HEIGHT - cm_to_px(0.2))  # Altura: total menos margens (0.1cm × 2)
         
-        # Redimensiona logo mantendo proporções
+        # Redimensiona logo mantendo proporção (thumbnail não distorce)
         logo_resized = logo_image.copy()
-        logo_resized.thumbnail((logo_width, logo_height), Image.Resampling.LANCZOS)
+        logo_resized.thumbnail((logo_width, logo_height), Image.Resampling.LANCZOS)  # LANCZOS = alta qualidade
         
-        # Posiciona logo à direita da área imprimível
-        logo_x = printable_right - logo_width - cm_to_px(0.1)
-        logo_y = int((P_HEIGHT - logo_resized.height) / 2)
-        base.paste(logo_resized, (logo_x, logo_y))
+        # Posiciona logo no canto direito da área imprimível
+        logo_x = printable_right - logo_width - cm_to_px(0.1)  # 0.1cm da borda direita
+        logo_y = int((P_HEIGHT - logo_resized.height) / 2)  # Centralizado verticalmente
+        base.paste(logo_resized, (logo_x, logo_y))  # Cola o logo na imagem
         
-        # Ajusta área central para não sobrepor logo
-        centro_right = logo_x - cm_to_px(0.2)
+        # Ajusta área central para não sobrepor o logo (reduz largura disponível)
+        centro_right = logo_x - cm_to_px(0.2)  # 0.2cm de margem entre texto e logo
     
     centro_width = centro_right - centro_left
     

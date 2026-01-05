@@ -12,24 +12,32 @@ import base64
 
 
 class ZebraPrinter:
-    """Classe para gerenciar impressão em impressoras Zebra via ZPL."""
+    """
+    Classe para gerenciar impressão em impressoras Zebra via ZPL.
+    
+    ZPL (Zebra Programming Language) é uma linguagem de comandos
+    usada para controlar impressoras Zebra. Permite impressão direta
+    sem necessidade de drivers gráficos, resultando em melhor performance.
+    """
     
     def __init__(self, printer_name: str = "Zebra ZD230"):
         """
         Inicializa o gerenciador da impressora Zebra.
         
         Args:
-            printer_name: Nome da impressora instalada no sistema
+            printer_name: Nome exato da impressora como aparece no sistema
+                         (ex: "Zebra ZD230", "ZDesigner ZD230-203dpi ZPL")
         """
         self.printer_name = printer_name
-        self.system = platform.system()
+        self.system = platform.system()  # Detecta SO (Windows, Linux, Darwin)
         
-        # Verificar se estamos no Windows
+        # === Inicializa biblioteca específica do sistema operacional ===
         if self.system == "Windows":
             try:
-                import win32print
+                import win32print  # Biblioteca de impressão Windows
                 self.win32print = win32print
             except ImportError:
+                # Se pywin32 não estiver instalado, levanta erro instrutivo
                 raise ImportError(
                     "Módulo win32print não encontrado. "
                     "Instale com: pip install pywin32"
@@ -38,20 +46,24 @@ class ZebraPrinter:
     def list_printers(self) -> List[str]:
         """
         Lista todas as impressoras instaladas no sistema.
+        Funciona em Windows (win32print) e Linux (CUPS).
         
         Returns:
-            Lista com nomes das impressoras
+            Lista com nomes exatos das impressoras como aparecem no sistema
         """
         if self.system == "Windows":
             printers = []
+            # EnumPrinters(2) lista todas as impressoras locais e de rede
             for printer in self.win32print.EnumPrinters(2):
+                # printer[2] contém o nome da impressora
                 printers.append(printer[2])
             return printers
         else:
-            # Para Linux, usar CUPS
+            # Para Linux/Unix, usa CUPS (Common Unix Printing System)
             try:
                 import cups
-                conn = cups.Connection()
+                conn = cups.Connection()  # Conecta ao servidor CUPS
+                # getPrinters() retorna dicionário {nome: info}
                 return list(conn.getPrinters().keys())
             except ImportError:
                 print("[WARN] Módulo cups não encontrado. Instale com: pip install pycups")
@@ -71,13 +83,18 @@ class ZebraPrinter:
         """
         Envia comandos ZPL diretamente para a impressora.
         
+        ZPL (Zebra Programming Language) é uma linguagem de texto puro.
+        Exemplo de comando: "^XA^FO50,50^A0N,50,50^FDTeste^FS^XZ"
+        
         Args:
-            zpl_command: Comando ZPL a ser enviado
+            zpl_command: String com comando(s) ZPL completo(s)
+                        Deve iniciar com ^XA e terminar com ^XZ
             
         Returns:
             True se enviado com sucesso, False caso contrário
         """
         try:
+            # Roteia para função específica do sistema operacional
             if self.system == "Windows":
                 return self._send_zpl_windows(zpl_command)
             else:
@@ -88,7 +105,10 @@ class ZebraPrinter:
     
     def _send_zpl_windows(self, zpl_command: str) -> bool:
         """
-        Envia comandos ZPL via Windows (win32print).
+        Envia comandos ZPL via Windows usando win32print (impressão RAW).
+        
+        Impressão RAW envia dados diretamente à impressora sem processamento
+        do driver gráfico, permitindo uso de comandos ZPL nativos.
         
         Args:
             zpl_command: Comando ZPL a ser enviado
@@ -97,31 +117,33 @@ class ZebraPrinter:
             True se enviado com sucesso
         """
         try:
-            # Abrir impressora
+            # ETAPA 1: Abre conexão com a impressora pelo nome
             hprinter = self.win32print.OpenPrinter(self.printer_name)
             
             try:
-                # Iniciar documento
+                # ETAPA 2: Inicia um novo documento de impressão
+                # Parâmetros: (handle_impressora, nível, (nome_doc, arquivo_saida, tipo_dados))
                 hjob = self.win32print.StartDocPrinter(hprinter, 1, ("Pulseira", None, "RAW"))
+                # "RAW" indica que os dados serão enviados sem processamento
                 
                 try:
-                    # Iniciar página
+                    # ETAPA 3: Inicia uma nova página
                     self.win32print.StartPagePrinter(hprinter)
                     
-                    # Enviar comando ZPL
+                    # ETAPA 4: Envia o comando ZPL (converte string para bytes UTF-8)
                     self.win32print.WritePrinter(hprinter, zpl_command.encode('utf-8'))
                     
-                    # Finalizar página
+                    # ETAPA 5: Finaliza a página (dispara impressão)
                     self.win32print.EndPagePrinter(hprinter)
                     
                 finally:
-                    # Finalizar documento
+                    # ETAPA 6: Finaliza o documento (sempre executado)
                     self.win32print.EndDocPrinter(hprinter)
             finally:
-                # Fechar impressora
+                # ETAPA 7: Fecha a conexão com a impressora (sempre executado)
                 self.win32print.ClosePrinter(hprinter)
             
-            return True
+            return True  # Sucesso!
             
         except Exception as e:
             print(f"[ERROR] Erro ao imprimir (Windows): {e}")

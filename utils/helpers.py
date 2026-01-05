@@ -18,21 +18,23 @@ def generate_qr_image(data: str, size_px: int) -> Image.Image:
     Gera uma imagem PIL de QR code.
     
     Args:
-        data: Dados para o QR code
-        size_px: Tamanho em pixels
+        data: Dados para o QR code (ex: número da carteirinha)
+        size_px: Tamanho final do QR em pixels (quadrado)
         
     Returns:
-        PIL Image do QR code
+        PIL Image do QR code (RGB, pronto para colar)
     """
     qr = qrcode.QRCode(
-        version=2,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
-        box_size=10,
-        border=0,
+        version=2,  # Versão do QR (1-40, maior = mais dados). 2 é suficiente para números
+        error_correction=qrcode.constants.ERROR_CORRECT_M,  # Nível M = ~15% de correção de erros
+        box_size=10,  # Tamanho de cada "quadradinho" do QR
+        border=0,  # Sem borda ao redor (economiza espaço)
     )
-    qr.add_data(data)
-    qr.make(fit=True)
+    qr.add_data(data)  # Adiciona os dados a serem codificados
+    qr.make(fit=True)  # Otimiza o tamanho automaticamente
+    # Gera a imagem P&B e converte para RGB (compatível com cola)
     img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
+    # Redimensiona para o tamanho exato solicitado (LANCZOS = melhor qualidade)
     img = img.resize((size_px, size_px), Image.LANCZOS)
     return img
 
@@ -41,26 +43,31 @@ def list_system_fonts() -> Dict[str, List[Tuple[str, str]]]:
     """
     ✅ MÓDULO 4 - CORREÇÃO: Retorna APENAS as fontes da pasta "fonte padrao"
     Não usa mais fontes do sistema - apenas as fontes obrigatórias do projeto
-    """
-    fonts = {}
     
-    # ✅ Caminho obrigatório para fontes do projeto
+    Returns:
+        Dicionário {família: [(caminho, estilo), ...]}
+        Exemplo: {'Arial': [('/path/Arial-Regular.ttf', 'Regular'), ...]}
+    """
+    fonts = {}  # Dicionário que armazenará as fontes encontradas
+    
+    # ✅ Caminho obrigatório para fontes do projeto (pasta 'fonte padrao' na raiz)
     project_fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'fonte padrao')
     
+    # Verifica se a pasta existe
     if not os.path.isdir(project_fonts_dir):
         print(f"[WARN] Pasta 'fonte padrao' não encontrada em: {project_fonts_dir}")
-        return fonts
+        return fonts  # Retorna dicionário vazio
     
-    # ✅ Carregar APENAS fontes da pasta "fonte padrao"
+    # ✅ Carregar APENAS fontes da pasta "fonte padrao" (arquivos .ttf e .otf)
     for filename in os.listdir(project_fonts_dir):
-        if filename.lower().endswith(('.ttf', '.otf')):
-            path = os.path.join(project_fonts_dir, filename)
+        if filename.lower().endswith(('.ttf', '.otf')):  # Aceita TrueType e OpenType
+            path = os.path.join(project_fonts_dir, filename)  # Caminho completo do arquivo
             
-            # Extrair nome da família da fonte
-            name = os.path.splitext(filename)[0]
+            # Extrair nome base do arquivo (sem extensão)
+            name = os.path.splitext(filename)[0]  # Ex: "Arial-Bold.ttf" → "Arial-Bold"
             
-            # Detectar estilo pelo nome do arquivo
-            style = 'Regular'
+            # Detectar estilo analisando o nome do arquivo (heurística)
+            style = 'Regular'  # Padrão
             if 'bold' in name.lower():
                 style = 'Bold'
             elif 'italic' in name.lower() or 'oblique' in name.lower():
@@ -68,9 +75,11 @@ def list_system_fonts() -> Dict[str, List[Tuple[str, str]]]:
             elif 'slab' in name.lower():
                 style = 'Slab'
             
-            # Extrair família base (remover sufixos de estilo)
+            # Extrair família base removendo sufixos de estilo
+            # Ex: "Arial-Bold" → "Arial", "RobotoSlab" → "Roboto"
             family = name.replace('-Bold', '').replace('-Regular', '').replace('-Italic', '').replace('Slab', '').strip()
             
+            # Adiciona à lista de fontes (setdefault cria lista vazia se família não existir)
             fonts.setdefault(family, []).append((path, style))
             
             print(f"[INFO] ✓ Fonte carregada: {family} ({style}) - {filename}")

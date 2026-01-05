@@ -32,68 +32,74 @@ class IOManager:
             Lista de dicionários com dados
         """
         if filepath is None:
+            # Se nenhum caminho foi fornecido, abre diálogo para usuário selecionar
             filepath = filedialog.askopenfilename(filetypes=[('CSV files', '*.csv')])
         
         if not filepath:
-            return []
+            return []  # Usuário cancelou a seleção
         
         try:
-            # Detecta o delimitador automaticamente
+            # === ETAPA 1: Detecta automaticamente o delimitador usado no CSV ===
+            # Lê uma amostra do arquivo (primeiros 4KB) para análise
             with open(filepath, 'r', encoding='utf-8') as f:
-                sample = f.read(4096)
+                sample = f.read(4096)  # Amostra suficiente para detectar o padrão
             
-            # Tenta sniffer para detectar delimitador
+            # Tenta usar o Sniffer do Python para detectar o delimitador
             try:
-                dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')
+                dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')  # Vírgula, ponto-e-vírgula ou tab
                 delimiter = dialect.delimiter
             except Exception:
-                # Se falhar, tenta cada delimitador em ordem
-                if ';' in sample.split('\n')[0]:
-                    delimiter = ';'
-                elif '\t' in sample.split('\n')[0]:
-                    delimiter = '\t'
+                # Se o Sniffer falhar, usa heurística manual (verifica primeira linha)
+                first_line = sample.split('\n')[0]
+                if ';' in first_line:
+                    delimiter = ';'  # Excel Brasil/Portugal usa ponto-e-vírgula
+                elif '\t' in first_line:
+                    delimiter = '\t'  # Arquivo separado por tabulação
                 else:
-                    delimiter = ','
+                    delimiter = ','  # Padrão internacional (vírgula)
             
-            # Agora lê o arquivo com o delimitador detectado
+            # === ETAPA 2: Lê o CSV com o delimitador detectado ===
             with open(filepath, 'r', newline='', encoding='utf-8') as f:
-                reader = csv.DictReader(f, delimiter=delimiter)
-                headers = reader.fieldnames
+                reader = csv.DictReader(f, delimiter=delimiter)  # Cria leitor de dicionário
+                headers = reader.fieldnames  # Obtém nomes das colunas
                 
                 if not headers:
                     raise ValueError('CSV está vazio.')
                 
-                # Normaliza nomes de colunas (remove espaços extras)
+                # Normaliza nomes de colunas (remove espaços extras que podem causar erros)
                 headers_normalized = [h.strip() if h else '' for h in headers]
                 
-                # Verifica colunas obrigatórias
+                # === ETAPA 3: Valida se todas as colunas obrigatórias estão presentes ===
                 missing_cols = [col for col in EXPECTED_COLUMNS if col not in headers_normalized]
                 if missing_cols:
+                    # Mostra erro amigável ao usuário listando o que falta
                     msg = f'Colunas obrigatórias ausentes:\n{", ".join(missing_cols)}'
                     messagebox.showerror('Erro', msg)
                     return []
                 
-                # Lê todos os pacientes
-                patients = []
-                for row_dict in reader:
-                    # Normaliza chaves (remove espaços) e limpa valores
+                # === ETAPA 4: Lê e limpa os dados de cada paciente ===
+                patients = []  # Lista que armazenará todos os pacientes
+                for row_dict in reader:  # Itera sobre cada linha do CSV
+                    # Normaliza chaves e valores (remove espaços desnecessários)
                     clean_row = {}
                     for key, value in row_dict.items():
-                        if key:
-                            # Normaliza a chave (remove espaços)
+                        if key:  # Ignora colunas sem nome
+                            # Remove espaços do nome da coluna
                             normalized_key = key.strip()
-                            # Limpa o valor (remove espaços nas extremidades)
+                            # Remove espaços nas extremidades do valor (trim)
                             clean_value = value.strip() if value else ''
                             clean_row[normalized_key] = clean_value
                     
-                    # Só adiciona se tiver dados
+                    # Só adiciona linha se tiver pelo menos algum dado (ignora linhas vazias)
                     if any(clean_row.values()):
                         patients.append(clean_row)
                 
+                # Verifica se encontrou pelo menos um paciente válido
                 if not patients:
                     messagebox.showwarning('Aviso', 'Nenhum paciente válido encontrado.')
                     return []
                 
+                # Sucesso! Mostra quantos pacientes foram importados
                 messagebox.showinfo('Sucesso', f'{len(patients)} paciente(s) importado(s).')
                 return patients
                 
